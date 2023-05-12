@@ -205,9 +205,9 @@ def main(args):
 
     if args.train_eval:
         print('evalution on trainig set without data augmentation')
-        dataset_train, args.nb_classes = build_dataset(is_train=True, args=args, no_augmentation=True)
+        dataset_train, args.nb_classes = build_dataset(is_train=False, args=args, no_augmentation=True)
     else:
-        dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
+        dataset_train, args.nb_classes = build_dataset(is_train=False, args=args)
 
     dataset_val, _ = build_dataset(is_train=False, args=args)
 
