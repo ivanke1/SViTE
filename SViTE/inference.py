@@ -363,6 +363,8 @@ def main(args):
     if args.resume:
         checkpoint = torch.load(args.resume, map_location=torch.device("cuda:{}".format(global_rank)))
         model_without_ddp.load_state_dict(checkpoint['model'])
+        n_parameters = sum(p.numel() for p in model_without_ddp.parameters() if p.requires_grad)
+        print('number of params:', n_parameters)
     if args.train_eval:
         test_stats = evaluate(data_loader_train, model_without_ddp, device, args)
         print(f"Accuracy of the network on the {len(dataset_train)} test images: {test_stats['acc1']:.1f}%")
