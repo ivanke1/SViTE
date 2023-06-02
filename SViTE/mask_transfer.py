@@ -186,6 +186,8 @@ def get_args_parser():
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     
+    parser.add_argument('--mask', action='store_true')
+    
     dst_utils.core.add_sparse_args(parser)
     return parser
 
@@ -282,36 +284,36 @@ def main(args):
             if hasattr(m, 'score'):
                 m.score = True
 
-    if args.finetune:
-        checkpoint = torch.load(args.finetune, map_location='cpu')
-        checkpoint_model = checkpoint['model']
-        state_dict = model.state_dict()
-        for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
-            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                print(f"Removing key {k} from pretrained checkpoint")
-                del checkpoint_model[k]
+#     if args.finetune:
+#         checkpoint = torch.load(args.finetune, map_location='cpu')
+#         checkpoint_model = checkpoint['model']
+#         state_dict = model.state_dict()
+#         for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
+#             if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+#                 print(f"Removing key {k} from pretrained checkpoint")
+#                 del checkpoint_model[k]
 
-        # interpolate position embedding
-        pos_embed_checkpoint = checkpoint_model['pos_embed']
-        embedding_size = pos_embed_checkpoint.shape[-1]
-        num_patches = model.patch_embed.num_patches
-        num_extra_tokens = model.pos_embed.shape[-2] - num_patches
-        # height (== width) for the checkpoint position embedding
-        orig_size = int((pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
-        # height (== width) for the new position embedding
-        new_size = int(num_patches ** 0.5)
-        # class_token and dist_token are kept unchanged
-        extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
-        # only the position tokens are interpolated
-        pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
-        pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
-        pos_tokens = torch.nn.functional.interpolate(
-            pos_tokens, size=(new_size, new_size), mode='bicubic', align_corners=False)
-        pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
-        new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
-        checkpoint_model['pos_embed'] = new_pos_embed
+#         # interpolate position embedding
+#         pos_embed_checkpoint = checkpoint_model['pos_embed']
+#         embedding_size = pos_embed_checkpoint.shape[-1]
+#         num_patches = model.patch_embed.num_patches
+#         num_extra_tokens = model.pos_embed.shape[-2] - num_patches
+#         # height (== width) for the checkpoint position embedding
+#         orig_size = int((pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
+#         # height (== width) for the new position embedding
+#         new_size = int(num_patches ** 0.5)
+#         # class_token and dist_token are kept unchanged
+#         extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
+#         # only the position tokens are interpolated
+#         pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
+#         pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
+#         pos_tokens = torch.nn.functional.interpolate(
+#             pos_tokens, size=(new_size, new_size), mode='bicubic', align_corners=False)
+#         pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
+#         new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
+#         checkpoint_model['pos_embed'] = new_pos_embed
 
-        model.load_state_dict(checkpoint_model, strict=False)
+#         model.load_state_dict(checkpoint_model, strict=False)
         
     model.to(device)
     
@@ -377,20 +379,49 @@ def main(args):
     if args.resume:
         checkpoint = torch.load(args.resume, map_location=torch.device("cuda:{}".format(global_rank)))
 #         model_without_ddp.load_state_dict(checkpoint['model'])
+        if args.mask:
+            decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
+            mask = Masking(optimizer, death_rate=args.death_rate, 
+                                    death_mode=args.death, 
+                                    death_rate_decay=decay, 
+                                    growth_mode=args.growth,
+                                    redistribution_mode=args.redistribution, 
+                                    args=args,
+                                    device_ids=global_rank)
+            mask.add_module(model, sparse_init=args.sparse_init, # fixed_ERK
+                                    density=args.density,
+                                    pruning_type=args.pruning_type,
+                                    mask_path = args.mask_path)         # 0.05
+            mask.resume(checkpoint, args.pruning_type, args.density)
+        
+        checkpoint = torch.load(args.finetune, map_location='cpu')
+        checkpoint_model = checkpoint['model']
+        state_dict = model.state_dict()
+        for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
+            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+                print(f"Removing key {k} from pretrained checkpoint")
+                del checkpoint_model[k]
 
-        decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
-        mask = Masking(optimizer, death_rate=args.death_rate, 
-                                death_mode=args.death, 
-                                death_rate_decay=decay, 
-                                growth_mode=args.growth,
-                                redistribution_mode=args.redistribution, 
-                                args=args,
-                                device_ids=global_rank)
-        mask.add_module(model, sparse_init=args.sparse_init, # fixed_ERK
-                                density=args.density,
-                                pruning_type=args.pruning_type,
-                                mask_path = args.mask_path)         # 0.05
-        mask.resume(checkpoint, args.pruning_type, args.density)
+        # interpolate position embedding
+        pos_embed_checkpoint = checkpoint_model['pos_embed']
+        embedding_size = pos_embed_checkpoint.shape[-1]
+        num_patches = model.patch_embed.num_patches
+        num_extra_tokens = model.pos_embed.shape[-2] - num_patches
+        # height (== width) for the checkpoint position embedding
+        orig_size = int((pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
+        # height (== width) for the new position embedding
+        new_size = int(num_patches ** 0.5)
+        # class_token and dist_token are kept unchanged
+        extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
+        # only the position tokens are interpolated
+        pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
+        pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
+        pos_tokens = torch.nn.functional.interpolate(
+            pos_tokens, size=(new_size, new_size), mode='bicubic', align_corners=False)
+        pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
+        new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
+        checkpoint_model['pos_embed'] = new_pos_embed
+        model.load_state_dict(checkpoint_model, strict=False)
     test_stats = evaluate(data_loader_val, model, device, args)
     print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
     return 0
