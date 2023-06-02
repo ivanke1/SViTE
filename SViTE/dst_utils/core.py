@@ -160,8 +160,8 @@ class Masking(object):
                     self.names.append(name_cur)
                     self.masks[name_cur] = torch.zeros_like(tensor, dtype=torch.float32, requires_grad=False).cuda()
             
-            print('Removing biases...')
-            self.remove_weight_partial_name('bias')
+#             print('Removing biases...')
+#             self.remove_weight_partial_name('bias')
             self.init(mode=sparse_init, density=density, mask_file=mask_path)
 
         elif pruning_type == 'structure_new':
