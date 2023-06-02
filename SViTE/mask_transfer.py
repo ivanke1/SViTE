@@ -374,24 +374,23 @@ def main(args):
 
     output_dir = Path(args.output_dir)
 
-    # explo
-#     decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
-#     mask = Masking(optimizer, death_rate=args.death_rate, 
-#                                 death_mode=args.death, 
-#                                 death_rate_decay=decay, 
-#                                 growth_mode=args.growth,
-#                                 redistribution_mode=args.redistribution, 
-#                                 args=args,
-#                                 device_ids=global_rank)
-
-#     mask.add_module(model, sparse_init=args.sparse_init, # fixed_ERK
-#                             density=args.density,
-#                             pruning_type=args.pruning_type,
-#                             mask_path = args.mask_path)         # 0.05
   
     if args.resume:
         checkpoint = torch.load(args.resume, map_location=torch.device("cuda:{}".format(global_rank)))
 #         model_without_ddp.load_state_dict(checkpoint['model'])
+
+    #     decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
+        mask = Masking(optimizer, death_rate=args.death_rate, 
+                                    death_mode=args.death, 
+                                    death_rate_decay=decay, 
+                                    growth_mode=args.growth,
+                                    redistribution_mode=args.redistribution, 
+                                    args=args,
+                                    device_ids=global_rank)
+    #     mask.add_module(model, sparse_init=args.sparse_init, # fixed_ERK
+    #                             density=args.density,
+    #                             pruning_type=args.pruning_type,
+    #                             mask_path = args.mask_path)         # 0.05
         mask.resume(checkpoint, args.pruning_type, args.density)
     test_stats = evaluate(data_loader_val, model, device, args)
     print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
