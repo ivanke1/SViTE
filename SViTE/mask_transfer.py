@@ -388,11 +388,10 @@ def main(args):
 #                             density=args.density,
 #                             pruning_type=args.pruning_type,
 #                             mask_path = args.mask_path)         # 0.05
-   
-
+  
     if args.resume:
         checkpoint = torch.load(args.resume, map_location=torch.device("cuda:{}".format(global_rank)))
-        model_without_ddp.load_state_dict(checkpoint['model'])
+#         model_without_ddp.load_state_dict(checkpoint['model'])
         mask.resume(checkpoint, args.pruning_type, args.density)
     test_stats = evaluate(data_loader_val, model, device, args)
     print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
