@@ -388,11 +388,11 @@ def main(args):
                                 redistribution_mode=args.redistribution, 
                                 args=args,
                                 device_ids=global_rank)
-        mask.add_module(model, sparse_init='custom',
+        mask.add_module(model, sparse_init=args.sparse_init,
                                 density=args.density,
                                 pruning_type=args.pruning_type,
                                 mask_path = args.resume)         
-#         mask.resume(checkpoint, args.pruning_type, args.density)
+        mask.resume(checkpoint, args.pruning_type, args.density)
         
     test_stats = evaluate(data_loader_val, model, device, args)
     print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
