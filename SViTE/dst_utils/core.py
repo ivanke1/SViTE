@@ -721,13 +721,10 @@ class Masking(object):
                     name_cur = name+'_'+str(index)
                     index += 1
                     if name_cur in self.masks:
-#                         if(weight.data.shape != self.masks[name_cur].shape):
-                        print(weight.data.shape)
-                        print("\n")
-                        print(self.masks[name_cur].shape)
-                        weight.data = weight.data*self.masks[name_cur]
-                        if 'momentum_buffer' in self.optimizer.state[weight]:
-                            self.optimizer.state[weight]['momentum_buffer'] = self.optimizer.state[weight]['momentum_buffer']*self.masks[name_cur]
+                        if weight.data.shape == self.masks[name_cur].shape: # transfer all but classification layer (if transfer across datasets)
+                            weight.data = weight.data*self.masks[name_cur]
+                            if 'momentum_buffer' in self.optimizer.state[weight]:
+                                self.optimizer.state[weight]['momentum_buffer'] = self.optimizer.state[weight]['momentum_buffer']*self.masks[name_cur]
 
         elif pruning_type=="structure":
             index = 0
