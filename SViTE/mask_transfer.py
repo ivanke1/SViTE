@@ -374,12 +374,11 @@ def main(args):
 
     output_dir = Path(args.output_dir)
 
-  
     if args.resume:
         checkpoint = torch.load(args.resume, map_location=torch.device("cuda:{}".format(global_rank)))
 #         model_without_ddp.load_state_dict(checkpoint['model'])
 
-    #     decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
+        decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
         mask = Masking(optimizer, death_rate=args.death_rate, 
                                     death_mode=args.death, 
                                     death_rate_decay=decay, 
