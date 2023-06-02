@@ -462,7 +462,7 @@ class Masking(object):
                 prob = growth / np.prod(weight.shape)
                 self.masks[name_cur][:] = (torch.rand(weight.shape) < prob).float().data.cuda()
 
-        self.apply_mask()
+#         self.apply_mask()
         self.fired_masks = copy.deepcopy(self.masks) # used for over-paremeters
         self.init_death_rate(self.death_rate)
 
