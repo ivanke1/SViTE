@@ -375,19 +375,19 @@ def main(args):
     output_dir = Path(args.output_dir)
 
     # explo
-    decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
-    mask = Masking(optimizer, death_rate=args.death_rate, 
-                                death_mode=args.death, 
-                                death_rate_decay=decay, 
-                                growth_mode=args.growth,
-                                redistribution_mode=args.redistribution, 
-                                args=args,
-                                device_ids=global_rank)
+#     decay = CosineDecay(args.death_rate, len(data_loader_train) * (args.epochs))
+#     mask = Masking(optimizer, death_rate=args.death_rate, 
+#                                 death_mode=args.death, 
+#                                 death_rate_decay=decay, 
+#                                 growth_mode=args.growth,
+#                                 redistribution_mode=args.redistribution, 
+#                                 args=args,
+#                                 device_ids=global_rank)
 
-    mask.add_module(model, sparse_init=args.sparse_init, # fixed_ERK
-                            density=args.density,
-                            pruning_type=args.pruning_type,
-                            mask_path = args.mask_path)         # 0.05
+#     mask.add_module(model, sparse_init=args.sparse_init, # fixed_ERK
+#                             density=args.density,
+#                             pruning_type=args.pruning_type,
+#                             mask_path = args.mask_path)         # 0.05
    
 
     if args.resume:
